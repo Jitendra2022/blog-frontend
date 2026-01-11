@@ -4,122 +4,238 @@ import useUser from "../hook/useUser";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import { axiosInstance } from "../api/axiosInstance";
+import { FaRegCommentDots } from "react-icons/fa";
+
 const Post = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useUser();
-  const [post, setPost] = useState([]);
+
+  const [post, setPost] = useState(null);
   const [comment, setComment] = useState("");
+  const [reply, setReply] = useState({});
+  const [activeReplyId, setActiveReplyId] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ===== TIME FORMATTER =====
+  const formatTime = (date) =>
+    new Date(date).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  // ================= FETCH POST =================
   const getSinglePost = async () => {
     try {
-      const response = await axiosInstance.get(
-        `http://localhost:9090/public/singlepost/${id}`
-      );
-      setPost(response.data.post);
+      const res = await axiosInstance.get(`/public/singlepost/${id}`);
+      setPost(res.data.post);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     getSinglePost();
   }, [id]);
-  const handleSubmit = async (e) => {
+
+  // ================= ADD COMMENT / REPLY =================
+  const handleSubmit = async (e, parentCommentId = null) => {
     e.preventDefault();
+
     if (!user) {
       navigate("/login");
       return;
     }
+
+    const text = parentCommentId ? reply[parentCommentId] : comment;
+    if (!text?.trim()) return;
+
     try {
       await axiosInstance.post("/comment/add-comment", {
         postId: id,
-        userId: user._id,
-        comment,
+        comment: text,
+        parentComment: parentCommentId,
       });
+
       setComment("");
+      setReply((prev) => ({ ...prev, [parentCommentId]: "" }));
+      setActiveReplyId(null);
       getSinglePost();
     } catch (err) {
       console.error(err);
     }
   };
-  return (
-    <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
-      {loading ? (
-        <div className="space-y-4">
-          <Skeleton height={256} className="rounded-lg" /> {/* image */}
-          <Skeleton width={`60%`} height={32} /> {/* title */}
-          <Skeleton count={3} /> {/* description */}
-        </div>
-      ) : (
-        <>
-          <img
-            src={`http://localhost:9090/uploads/blog-images/${post.image}`}
-            alt="post"
-            className="w-full rounded-lg mb-6"
-          />
-          <h1 className="text-3xl font-bold mb-6">{post.title}</h1>
-          <p className="text-gray-700 text-lg leading-relaxed mb-6">
-            {post.desc}
-          </p>
-        </>
-      )}
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Leave a Comment</h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Write your comment..."
-            className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            rows={4}
-          />
-          <button
-            type="submit"
-            className="self-start px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-          >
-            Submit Comment
-          </button>
-        </form>
-      </div>
-      {/* Display Comments */}
-      <div className="mt-6">
-        <h3 className="text-xl font-semibold mb-4">Comments</h3>
-        {post?.comments?.length === 0 ? (
-          <p className="text-gray-500 mt-4">No comments yet.</p>
-        ) : (
-          <ul className="mt-6">
-            {post?.comments?.map((c, index) => (
-              <li
-                key={c._id}
-                className={`bg-white p-5 border border-gray-200 
-          ${index !== post.comments.length - 1 ? "border-b-0" : ""}
-        `}
-              >
-                {/* User Info */}
-                <div className="flex items-center gap-4 mb-2">
-                  <img
-                    src={`http://localhost:9090/uploads/user-images/${c.userId?.profile}`}
-                    alt={c.userId?.name}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {c.userId?.name}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(c.createdAt).toLocaleString()}
-                    </p>
-                  </div>
+
+  // ================= RENDER NESTED REPLIES =================
+  const renderReplies = (replies) => {
+    if (!replies?.length) return null;
+
+    return (
+      <ul className="mt-4 space-y-4">
+        {replies.map((r) => (
+          <li key={r._id} className="pl-4 border-l-2 border-gray-300">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              {/* User */}
+              <div className="flex items-center gap-2 mb-1">
+                <img
+                  src={`http://localhost:9090/uploads/user-images/${r.userId?.profile}`}
+                  className="w-7 h-7 rounded-full"
+                  alt=""
+                />
+                <div>
+                  <p className="text-sm font-semibold">{r.userId?.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {r.createdAt && formatTime(r.createdAt)}
+                  </p>
                 </div>
-                {/* Comment Text */}
-                <p className="text-gray-600 leading-relaxed">{c.comment}</p>
-              </li>
-            ))}
-          </ul>
-        )}
+              </div>
+
+              <p className="text-sm text-gray-700 mb-2">{r.comment}</p>
+
+              {/* Reply Icon */}
+              <button
+                onClick={() =>
+                  setActiveReplyId(activeReplyId === r._id ? null : r._id)
+                }
+                className="flex items-center gap-1 text-xs text-gray-500"
+              >
+                <FaRegCommentDots />
+                Reply
+              </button>
+
+              {/* Reply Input */}
+              {activeReplyId === r._id && (
+                <form
+                  onSubmit={(e) => handleSubmit(e, r._id)}
+                  className="mt-2 flex flex-col gap-2"
+                >
+                  <input
+                    type="text"
+                    placeholder="Write a reply..."
+                    className="p-2 text-sm border rounded-lg"
+                    value={reply[r._id] || ""}
+                    onChange={(e) =>
+                      setReply((prev) => ({
+                        ...prev,
+                        [r._id]: e.target.value,
+                      }))
+                    }
+                  />
+                  <button className="self-start px-3 py-1 text-sm bg-indigo-600 text-white rounded-lg">
+                    Reply
+                  </button>
+                </form>
+              )}
+
+              {renderReplies(r.replies)}
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  // ================= LOADING =================
+  if (loading) {
+    return (
+      <div className="p-4 max-w-4xl mx-auto">
+        <Skeleton height={250} />
+        <Skeleton count={3} />
       </div>
+    );
+  }
+
+  // ================= UI =================
+  return (
+    <div className="max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen">
+      {/* Post */}
+      <img
+        src={`http://localhost:9090/uploads/blog-images/${post.image}`}
+        className="w-full rounded-lg mb-4"
+        alt=""
+      />
+
+      <h1 className="text-2xl font-bold mb-3">{post.title}</h1>
+      <p className="text-gray-700 mb-6">{post.desc}</p>
+
+      {/* Add Comment */}
+      <form onSubmit={(e) => handleSubmit(e)} className="space-y-3 mb-6">
+        <textarea
+          rows={3}
+          placeholder="Write your comment..."
+          className="w-full p-3 border rounded-lg"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+        <button className="px-5 py-2 bg-indigo-600 text-white rounded-lg">
+          Comment
+        </button>
+      </form>
+
+      {/* Comments */}
+      <ul className="space-y-5">
+        {post.comments.map((c) => (
+          <li key={c._id} className="bg-white p-4 rounded-lg border">
+            <div className="flex items-center gap-3 mb-1">
+              <img
+                src={`http://localhost:9090/uploads/user-images/${c.userId?.profile}`}
+                className="w-9 h-9 rounded-full"
+                alt=""
+              />
+              <div>
+                <p className="font-semibold">{c.userId?.name}</p>
+                <p className="text-xs text-gray-400">
+                  {c.createdAt && formatTime(c.createdAt)}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-gray-700 mb-2">{c.comment}</p>
+
+            {/* Reply Icon */}
+            <button
+              onClick={() =>
+                setActiveReplyId(activeReplyId === c._id ? null : c._id)
+              }
+              className="flex items-center gap-1 text-sm text-gray-500"
+            >
+              <FaRegCommentDots />
+              Reply
+            </button>
+
+            {/* Reply Box */}
+            {activeReplyId === c._id && (
+              <form
+                onSubmit={(e) => handleSubmit(e, c._id)}
+                className="mt-2 flex flex-col gap-2"
+              >
+                <input
+                  type="text"
+                  placeholder="Write a reply..."
+                  className="p-2 text-sm border rounded-lg"
+                  value={reply[c._id] || ""}
+                  onChange={(e) =>
+                    setReply((prev) => ({
+                      ...prev,
+                      [c._id]: e.target.value,
+                    }))
+                  }
+                />
+                <button className="self-start px-3 py-1 text-sm bg-indigo-600 text-white rounded-lg">
+                  Reply
+                </button>
+              </form>
+            )}
+
+            {renderReplies(c.replies)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
