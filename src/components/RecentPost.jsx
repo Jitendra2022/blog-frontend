@@ -35,7 +35,7 @@ const RecentPost = () => {
               className="bg-white rounded-lg shadow-md overflow-hidden"
             >
               <img
-                src={`https://blog-backend-lake-eight.vercel.app/uploads/blog-images/${post.image}`}
+                src={post.image}
                 alt={post.title}
                 className="w-full h-48 object-cover"
               />

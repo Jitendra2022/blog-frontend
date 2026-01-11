@@ -57,7 +57,7 @@ const Navbar = () => {
         {user && (
           <div className="relative">
             <img
-              src={`https://blog-backend-lake-eight.vercel.app/uploads/user-images/${user.profile}`}
+              src={user.profile}
               alt="profile"
               className="w-10 h-10 rounded-full cursor-pointer border-2 border-slate-600"
               onClick={() => setOpen(!open)}
