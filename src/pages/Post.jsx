@@ -155,7 +155,7 @@ const Post = () => {
     <div className="max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen">
       {/* Post */}
       <img
-        src={`https://blog-backend-lake-eight.vercel.app/uploads/blog-images/${post.image}`}
+        src={post.image}
         className="w-full rounded-lg mb-4"
         alt=""
       />
