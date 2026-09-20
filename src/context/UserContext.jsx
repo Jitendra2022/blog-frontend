@@ -43,15 +43,7 @@ const UserProvider = ({ children }) => {
   }, []);
   return (
     <UserContext.Provider value={{ user, setUser, loading }}>
-      {/* Show a loading indicator while retrieving user data */}
-      {loading ? (
-        <div>
-          <p>Loading...</p>
-        </div>
-      ) : (
-        // Render children only after loading is complete
-        children
-      )}
+      {children}
     </UserContext.Provider>
   );
 };
